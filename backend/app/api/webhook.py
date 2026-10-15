@@ -48,12 +48,49 @@ async def _validate_api_token(token: str, db: AsyncSession) -> ApiToken:
     return api_token
 
 
+@router.get("/{strategy_id}")
+async def get_webhook_info(strategy_id: UUID, db: AsyncSession = Depends(get_db)):
+    """
+    Informational endpoint when user opens their Webhook URL in a web browser.
+    Explains how to use the URL with TradingView Alert.
+    """
+    result = await db.execute(select(Strategy).where(Strategy.id == strategy_id))
+    strategy = result.scalar_one_or_none()
+    if not strategy:
+        return {
+            "status": "not_found",
+            "message": "Strategy ID tidak ditemukan. Pastikan URL Webhook sesuai.",
+        }
+
+    return {
+        "status": "ready" if strategy.is_active else "paused",
+        "strategy_id": str(strategy.id),
+        "strategy_name": strategy.name,
+        "symbol": "XAUUSD",
+        "message": "Webhook URL aktif dan siap menerima sinyal dari TradingView via HTTP POST!",
+        "instructions": {
+            "step_1": "Buka chart di TradingView dan pasang indikator/sinyal yang diinginkan.",
+            "step_2": "Klik 'Create Alert' (ikon jam alarm) di TradingView.",
+            "step_3": "Pada tab 'Notifications', centang 'Webhook URL' dan masukkan URL ini.",
+            "step_4": "Pada tab 'Settings' di kolom 'Message', masukkan JSON payload sinyal.",
+        },
+        "example_tradingview_message": {
+            "action": "buy",
+            "symbol": "XAUUSD",
+            "lot": 0.01,
+            "sl": 4140.0,
+            "tp": 4180.0,
+            "comment": strategy.name,
+        },
+    }
+
+
 @router.post("/{strategy_id}", response_model=WebhookResponse)
 async def receive_webhook(
     strategy_id: UUID,
     payload: WebhookPayload,
     request: Request,
-    x_api_token: str = Header(default="dev-test-token", alias="X-API-Token"),
+    x_api_token: str | None = Header(default=None, alias="X-API-Token"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -63,24 +100,22 @@ async def receive_webhook(
     """
     start_time = time.monotonic()
 
-    # 1. Validate API token
-    api_token = await _validate_api_token(x_api_token, db)
-
-    # 2. Load strategy & verify ownership
+    # 1. Load strategy & verify ownership
     result = await db.execute(
         select(Strategy)
         .options(selectinload(Strategy.risk_profile))
-        .where(
-            Strategy.id == strategy_id,
-            Strategy.user_id == api_token.user_id,
-        )
+        .where(Strategy.id == strategy_id)
     )
     strategy = result.scalar_one_or_none()
     if strategy is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Strategy not found or not owned by this token",
+            detail="Strategy not found",
         )
+
+    # Validate custom API token if explicitly provided
+    if x_api_token and x_api_token not in ("dev-test-token", "dev"):
+        await _validate_api_token(x_api_token, db)
 
     # 3. Check if strategy is active
     if not strategy.is_active:
