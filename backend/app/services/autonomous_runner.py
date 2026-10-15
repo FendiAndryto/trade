@@ -16,7 +16,7 @@ from app.models.mt5_account import MT5Account
 from app.models.strategy import Strategy
 from app.models.trade import Trade, TradeDirection, TradeStatus
 from app.services.candle_service import get_or_generate_candles
-from app.services.exit_manager import evaluate_exit_conditions
+from app.services.exit_manager import evaluate_auto_bep, evaluate_trailing_stop
 from app.services.news_filter import is_news_blackout
 from app.services.strategy_engine import evaluate_built_in_strategy
 from app.ws.manager import ws_manager
