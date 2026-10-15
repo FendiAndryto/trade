@@ -124,7 +124,7 @@ export default function StrategiesPage() {
   const handleTestTrigger = async (s: Strategy) => {
     showToast(`Testing webhook trigger for "${s.name}"...`);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api/v1";
+      const apiUrl = typeof window !== "undefined" ? `${window.location.origin}/api/v1` : "https://trade.homever.my.id/api/v1";
       const start = performance.now();
       const res = await fetch(`${apiUrl}/webhook/${s.id}`, {
         method: "POST",
@@ -154,7 +154,7 @@ export default function StrategiesPage() {
 
   const handleSeedDemo = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api/v1";
+      const apiUrl = typeof window !== "undefined" ? `${window.location.origin}/api/v1` : "https://trade.homever.my.id/api/v1";
       const token = localStorage.getItem("tg_access_token");
       await fetch(`${apiUrl}/dashboard/seed-demo`, {
         method: "POST",
@@ -172,8 +172,8 @@ export default function StrategiesPage() {
 
   const apiHost =
     typeof window !== "undefined"
-      ? `${window.location.protocol}//${window.location.hostname}:8001/api/v1`
-      : "http://localhost:8001/api/v1";
+      ? `${window.location.origin}/api/v1`
+      : "https://trade.homever.my.id/api/v1";
 
   return (
     <div className={styles.container}>

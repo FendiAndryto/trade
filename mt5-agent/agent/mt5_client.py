@@ -303,6 +303,70 @@ class MT5Client:
         except ImportError:
             return None
 
+    def get_open_positions(self) -> list[dict]:
+        """Fetch all currently open positions from MT5."""
+        try:
+            import MetaTrader5 as mt5
+
+            positions = mt5.positions_get()
+            if not positions:
+                return []
+            res = []
+            for p in positions:
+                res.append(
+                    {
+                        "ticket": int(p.ticket),
+                        "symbol": str(p.symbol),
+                        "direction": "buy" if p.type == 0 else "sell",
+                        "lot": float(p.volume),
+                        "open_price": float(p.price_open),
+                        "current_price": float(p.price_current),
+                        "sl_price": float(p.sl) if p.sl > 0 else None,
+                        "tp_price": float(p.tp) if p.tp > 0 else None,
+                        "pnl": float(p.profit),
+                        "comment": str(p.comment),
+                        "opened_at": datetime.fromtimestamp(p.time, tz=timezone.utc).isoformat(),
+                    }
+                )
+            return res
+        except Exception:
+            return []
+
+    def get_candles(
+        self, symbol: str = "XAUUSD", timeframe: str = "1h", count: int = 120
+    ) -> list[dict]:
+        """Fetch historical candlestick data from MT5."""
+        try:
+            import MetaTrader5 as mt5
+
+            tf_map = {
+                "1m": mt5.TIMEFRAME_M1,
+                "5m": mt5.TIMEFRAME_M5,
+                "15m": mt5.TIMEFRAME_M15,
+                "1h": mt5.TIMEFRAME_H1,
+                "4h": mt5.TIMEFRAME_H4,
+                "1d": mt5.TIMEFRAME_D1,
+            }
+            tf = tf_map.get(timeframe.lower(), mt5.TIMEFRAME_H1)
+            resolved = self._resolve_symbol(symbol)
+            rates = mt5.copy_rates_from_pos(resolved, tf, 0, count)
+            if rates is None or len(rates) == 0:
+                return []
+            candles = []
+            for r in rates:
+                candles.append(
+                    {
+                        "time": int(r["time"]),
+                        "open": float(r["open"]),
+                        "high": float(r["high"]),
+                        "low": float(r["low"]),
+                        "close": float(r["close"]),
+                    }
+                )
+            return candles
+        except Exception:
+            return []
+
     @property
     def is_connected(self) -> bool:
         return self._connected

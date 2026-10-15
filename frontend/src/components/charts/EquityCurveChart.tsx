@@ -6,23 +6,6 @@ import { api } from "@/lib/api";
 import { EquityPoint } from "@/lib/types";
 import styles from "./EquityCurveChart.module.css";
 
-const fallbackData: EquityPoint[] = [
-  { date: "2026-10-02", balance: 10000.0, equity: 10035.0, pnl: 35.0 },
-  { date: "2026-10-03", balance: 10035.0, equity: 10082.5, pnl: 47.5 },
-  { date: "2026-10-04", balance: 10082.5, equity: 10060.0, pnl: -22.5 },
-  { date: "2026-10-05", balance: 10060.0, equity: 10115.0, pnl: 55.0 },
-  { date: "2026-10-06", balance: 10115.0, equity: 10140.2, pnl: 25.2 },
-  { date: "2026-10-07", balance: 10140.2, equity: 10110.0, pnl: -30.2 },
-  { date: "2026-10-08", balance: 10110.0, equity: 10178.4, pnl: 68.4 },
-  { date: "2026-10-09", balance: 10178.4, equity: 10210.0, pnl: 31.6 },
-  { date: "2026-10-10", balance: 10210.0, equity: 10185.0, pnl: -25.0 },
-  { date: "2026-10-11", balance: 10185.0, equity: 10240.0, pnl: 55.0 },
-  { date: "2026-10-12", balance: 10240.0, equity: 10275.5, pnl: 35.5 },
-  { date: "2026-10-13", balance: 10275.5, equity: 10250.0, pnl: -25.5 },
-  { date: "2026-10-14", balance: 10250.0, equity: 10300.0, pnl: 50.0 },
-  { date: "2026-10-15", balance: 10300.0, equity: 10312.5, pnl: 12.5 },
-];
-
 export default function EquityCurveChart() {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
@@ -30,16 +13,18 @@ export default function EquityCurveChart() {
   const lineSeriesRef = useRef<any>(null);
 
   const [days, setDays] = useState<number>(30);
-  const [dataPoints, setDataPoints] = useState<EquityPoint[]>(fallbackData);
+  const [dataPoints, setDataPoints] = useState<EquityPoint[]>([]);
 
   const loadData = useCallback(async () => {
     try {
       const res = await api.dashboard.getEquityCurve(days);
       if (res && res.data && res.data.length > 0) {
         setDataPoints(res.data);
+      } else {
+        setDataPoints([]);
       }
     } catch {
-      // Fallback
+      setDataPoints([]);
     }
   }, [days]);
 

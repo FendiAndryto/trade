@@ -112,3 +112,12 @@ async def close_trade(
     await db.refresh(trade)
 
     return TradeResponse.model_validate(trade)
+
+
+@router.get("/candles")
+async def get_candles(symbol: str = "XAUUSD"):
+    """Get latest candlestick data for symbol."""
+    from app.api.websocket import latest_candles
+    sym = symbol.upper().rstrip("M")
+    candles = latest_candles.get(sym, [])
+    return {"symbol": sym, "candles": candles}

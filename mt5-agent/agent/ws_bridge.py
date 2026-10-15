@@ -49,8 +49,9 @@ class WebSocketBridge:
                     self._reconnect_delay = 1  # Reset on successful connect
                     print("✅ Connected to TradeGear server")
 
-                    # Send initial account info
+                    # Send initial account info and candles
                     await self._send_account_update()
+                    await self._send_candles("XAUUSD", "1h", 120)
 
                     # Run message handler and tick streamer concurrently
                     await asyncio.gather(
@@ -81,6 +82,10 @@ class WebSocketBridge:
                     await self._handle_close(data.get("data", {}))
                 elif event == "request_account":
                     await self._send_account_update()
+                elif event == "request_candles":
+                    sym = data.get("data", {}).get("symbol", "XAUUSD")
+                    tf = data.get("data", {}).get("timeframe", "1h")
+                    await self._send_candles(sym, tf, 120)
                 elif event == "pong":
                     pass  # Keepalive response
 
@@ -158,8 +163,9 @@ class WebSocketBridge:
             await asyncio.sleep(5)
 
     async def _send_account_update(self):
-        """Send current account info to server."""
+        """Send current account info and open positions to server."""
         info = self._mt5.account_info()
+        positions = self._mt5.get_open_positions()
         if info:
             await self._send({
                 "event": "account_update",
@@ -173,6 +179,20 @@ class WebSocketBridge:
                     "margin_free": info.margin_free,
                     "margin_level": info.margin_level,
                     "currency": getattr(info, "currency", "USD"),
+                    "positions": positions,
+                },
+            })
+
+    async def _send_candles(self, symbol: str = "XAUUSD", timeframe: str = "1h", count: int = 120):
+        """Fetch and stream real candles from MT5."""
+        candles = self._mt5.get_candles(symbol, timeframe, count)
+        if candles:
+            await self._send({
+                "event": "candles_update",
+                "data": {
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "candles": candles,
                 },
             })
 

@@ -6,48 +6,17 @@ import { Trade } from "@/lib/types";
 import { useWebSocket } from "@/context/WebSocketContext";
 import styles from "./ActiveTrades.module.css";
 
-const fallbackTrades: Trade[] = [
-  {
-    id: "demo-1",
-    symbol: "XAUUSD",
-    direction: "buy",
-    lot: 0.15,
-    open_price: 2648.5,
-    sl_price: 2642.0,
-    tp_price: 2665.0,
-    pnl: 192.0,
-    status: "open",
-    opened_at: new Date(Date.now() - 42 * 60000).toISOString(),
-    comment: "Trend pullback entry",
-  },
-  {
-    id: "demo-2",
-    symbol: "EURUSD",
-    direction: "sell",
-    lot: 0.2,
-    open_price: 1.0892,
-    sl_price: 1.0915,
-    tp_price: 1.084,
-    pnl: 37.0,
-    status: "open",
-    opened_at: new Date(Date.now() - 15 * 60000).toISOString(),
-    comment: "Bearish pin bar",
-  },
-];
-
 export default function ActiveTrades() {
-  const [trades, setTrades] = useState<Trade[]>(fallbackTrades);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [closingId, setClosingId] = useState<string | null>(null);
   const { closeTrade, ticks } = useWebSocket();
 
   const fetchTrades = useCallback(async () => {
     try {
       const res = await api.trades.list({ status: "open" });
-      if (res && res.trades && res.trades.length > 0) {
-        setTrades(res.trades);
-      }
+      setTrades(res?.trades || []);
     } catch {
-      // Keep fallback trades
+      // Ignore transient errors
     }
   }, []);
 

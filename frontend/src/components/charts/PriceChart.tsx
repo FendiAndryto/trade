@@ -3,32 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createChart, ColorType, CandlestickSeries } from "lightweight-charts";
 import { useWebSocket } from "@/context/WebSocketContext";
+import { api } from "@/lib/api";
 import styles from "./PriceChart.module.css";
-
-// Generate mock XAUUSD candlestick data
-function generateMockCandles() {
-  const data = [];
-  let time = new Date("2024-09-01").getTime() / 1000;
-  let open = 2500;
-
-  for (let i = 0; i < 120; i++) {
-    const close = open + (Math.random() - 0.48) * 15;
-    const high = Math.max(open, close) + Math.random() * 10;
-    const low = Math.min(open, close) - Math.random() * 10;
-
-    data.push({
-      time: time as any,
-      open: Math.round(open * 100) / 100,
-      high: Math.round(high * 100) / 100,
-      low: Math.round(low * 100) / 100,
-      close: Math.round(close * 100) / 100,
-    });
-
-    time += 3600; // 1 hour candles
-    open = close;
-  }
-  return data;
-}
 
 export default function PriceChart() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,41 +62,19 @@ export default function PriceChart() {
       wickUpColor: "#10b981",
       wickDownColor: "#ef4444",
     });
-
-    const data = generateMockCandles();
-    candleSeries.setData(data);
     candleSeriesRef.current = candleSeries;
-    lastCandleRef.current = { ...data[data.length - 1] };
-
-    // Add entry line marker
-    const lastPrice = data[data.length - 1].close;
-    candleSeries.createPriceLine({
-      price: lastPrice - 20,
-      color: "#3b82f6",
-      lineWidth: 1,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: "Entry",
-    });
-    candleSeries.createPriceLine({
-      price: lastPrice - 50,
-      color: "#ef4444",
-      lineWidth: 1,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: "SL",
-    });
-    candleSeries.createPriceLine({
-      price: lastPrice + 30,
-      color: "#10b981",
-      lineWidth: 1,
-      lineStyle: 2,
-      axisLabelVisible: true,
-      title: "TP",
-    });
-
-    chart.timeScale().fitContent();
     chartRef.current = chart;
+
+    // Load real candles from MetaTrader 5 via backend
+    api.trades.getCandles("XAUUSD")
+      .then((res) => {
+        if (res && res.candles && res.candles.length > 0) {
+          candleSeries.setData(res.candles);
+          lastCandleRef.current = { ...res.candles[res.candles.length - 1] };
+          chart.timeScale().fitContent();
+        }
+      })
+      .catch(() => null);
 
     const handleResize = () => {
       if (containerRef.current) {
@@ -143,22 +97,40 @@ export default function PriceChart() {
   // Update candlestick when live tick arrives
   useEffect(() => {
     const tick = ticks["XAUUSD"];
-    if (!tick || !candleSeriesRef.current || !lastCandleRef.current) return;
+    if (!tick || !candleSeriesRef.current) return;
 
-    const last = lastCandleRef.current;
     const currentPrice = tick.bid;
-    const updated = {
-      ...last,
-      close: currentPrice,
-      high: Math.max(last.high, currentPrice),
-      low: Math.min(last.low, currentPrice),
-    };
-    lastCandleRef.current = updated;
+    if (lastCandleRef.current) {
+      const last = lastCandleRef.current;
+      const updated = {
+        ...last,
+        close: currentPrice,
+        high: Math.max(last.high, currentPrice),
+        low: Math.min(last.low, currentPrice),
+      };
+      lastCandleRef.current = updated;
 
-    try {
-      candleSeriesRef.current.update(updated);
-    } catch {
-      // Ignore transient errors
+      try {
+        candleSeriesRef.current.update(updated);
+      } catch {
+        // Ignore transient errors
+      }
+    } else {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const hourSec = nowSec - (nowSec % 3600);
+      const initial = {
+        time: hourSec as any,
+        open: currentPrice,
+        high: Math.max(currentPrice, tick.ask),
+        low: currentPrice,
+        close: currentPrice,
+      };
+      lastCandleRef.current = initial;
+      try {
+        candleSeriesRef.current.setData([initial]);
+      } catch {
+        // Ignore
+      }
     }
   }, [ticks]);
 

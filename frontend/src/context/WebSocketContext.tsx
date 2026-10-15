@@ -69,8 +69,16 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(
   undefined
 );
 
-const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8001/ws";
+const getWsUrl = () => {
+  if (process.env.NEXT_PUBLIC_WS_URL && !process.env.NEXT_PUBLIC_WS_URL.includes("localhost:8001")) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}/ws`;
+  }
+  return "wss://trade.homever.my.id/ws";
+};
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const { token, isAuthenticated } = useAuth();
@@ -146,7 +154,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     setIsConnecting(true);
 
     try {
-      const socket = new WebSocket(`${WS_URL}?token=${encodeURIComponent(currentToken)}`);
+      const socket = new WebSocket(`${getWsUrl()}?token=${encodeURIComponent(currentToken)}`);
       wsRef.current = socket;
 
       socket.onopen = () => {

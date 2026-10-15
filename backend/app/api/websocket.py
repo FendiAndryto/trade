@@ -14,6 +14,7 @@ from app.ws.manager import ws_manager
 
 router = APIRouter(tags=["WebSocket"])
 
+latest_candles: dict[str, list[dict]] = {}
 _tick_task: asyncio.Task | None = None
 _prices = {
     "XAUUSD": 2651.30,
@@ -239,10 +240,74 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_token: str = Quer
                                 acc.broker_name = str(data["company"])
                             acc.status = MT5Status.CONNECTED
                             acc.last_sync_at = datetime.now(timezone.utc)
+
+                            # Sync real open positions from MT5 terminal
+                            if "positions" in data:
+                                positions = data["positions"] or []
+                                active_tickets = {int(p["ticket"]) for p in positions}
+
+                                # 1. Upsert open positions from MT5
+                                for p in positions:
+                                    ticket = int(p["ticket"])
+                                    t_res = await db.execute(
+                                        select(Trade).where(
+                                            Trade.user_id == user_id,
+                                            Trade.mt5_ticket == ticket,
+                                        )
+                                    )
+                                    existing_trade = t_res.scalar_one_or_none()
+                                    pnl = float(p.get("pnl", 0.0))
+                                    if existing_trade:
+                                        existing_trade.realized_pnl = pnl
+                                        existing_trade.status = TradeStatus.OPEN
+                                        if p.get("sl_price"):
+                                            existing_trade.stop_loss = float(p["sl_price"])
+                                        if p.get("tp_price"):
+                                            existing_trade.take_profit = float(p["tp_price"])
+                                    else:
+                                        direction = (
+                                            TradeDirection.BUY
+                                            if str(p.get("direction", "")).lower() == "buy"
+                                            else TradeDirection.SELL
+                                        )
+                                        new_trade = Trade(
+                                            user_id=user_id,
+                                            mt5_account_id=account_id,
+                                            mt5_ticket=ticket,
+                                            symbol=str(p.get("symbol", "XAUUSD")).upper().rstrip("M"),
+                                            direction=direction,
+                                            lot_size=float(p.get("lot", 0.01)),
+                                            entry_price=float(p.get("open_price", 0.0)),
+                                            stop_loss=float(p["sl_price"]) if p.get("sl_price") else None,
+                                            take_profit=float(p["tp_price"]) if p.get("tp_price") else None,
+                                            realized_pnl=pnl,
+                                            status=TradeStatus.OPEN,
+                                            comment=str(p.get("comment", "MT5 Terminal")),
+                                        )
+                                        db.add(new_trade)
+
+                                # 2. Mark trades as CLOSED if no longer in active_tickets
+                                open_trades_res = await db.execute(
+                                    select(Trade).where(
+                                        Trade.user_id == user_id,
+                                        Trade.status == TradeStatus.OPEN,
+                                    )
+                                )
+                                for ot in open_trades_res.scalars().all():
+                                    if ot.mt5_ticket and ot.mt5_ticket not in active_tickets:
+                                        ot.status = TradeStatus.CLOSED
+                                        ot.closed_at = datetime.now(timezone.utc)
+
                             await db.commit()
 
                     # Broadcast update to user's dashboard
                     await ws_manager.send_to_user(user_id, "account_update", data)
+
+                elif event == "candles_update":
+                    sym = str(data.get("symbol", "XAUUSD")).upper().rstrip("M")
+                    candles = data.get("candles", [])
+                    latest_candles[sym] = candles
+                    await ws_manager.send_to_user(user_id, "candles", {"symbol": sym, "candles": candles})
 
                 elif event == "tick":
                     symbol = data.get("symbol", "")

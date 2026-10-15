@@ -13,10 +13,10 @@ export default function SettingsPage() {
 
   const serverUrl =
     typeof window !== "undefined"
-      ? `${window.location.protocol}//${window.location.hostname}:8001`
-      : "http://localhost:8001";
+      ? window.location.origin
+      : "https://trade.homever.my.id";
 
-  const sampleToken = "tg_live_79a2b8e3c4d5f6a1b2c3d4e5f6a7b8c9";
+  const sampleToken = "dev-test-token";
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

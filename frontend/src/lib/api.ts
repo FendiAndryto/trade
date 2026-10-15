@@ -194,6 +194,8 @@ export const api = {
     },
     close: (tradeId: string): Promise<Trade> =>
       request<Trade>(`/trades/${tradeId}/close`, { method: "POST" }),
+    getCandles: (symbol: string = "XAUUSD"): Promise<{ symbol: string; candles: any[] }> =>
+      request<{ symbol: string; candles: any[] }>(`/trades/candles?symbol=${symbol}`),
   },
 
   // Strategy endpoints

@@ -28,8 +28,8 @@ MT5_LOGIN=
 MT5_PASSWORD=
 MT5_SERVER=
 MT5_PATH=
-WS_URL=ws://localhost:8001/ws/agent
-AGENT_TOKEN=dev-agent-secret`;
+TRADEGEAR_SERVER_URL=wss://trade.homever.my.id/ws/agent
+TRADEGEAR_AGENT_TOKEN=dev-agent-secret`;
 
   const copyConfig = () => {
     navigator.clipboard.writeText(envSnippet);
