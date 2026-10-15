@@ -37,6 +37,7 @@ class MT5Account(Base):
     agent_token_hash: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )
+    pairing_code: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships

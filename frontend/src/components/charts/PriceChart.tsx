@@ -12,10 +12,19 @@ export default function PriceChart() {
   const candleSeriesRef = useRef<any>(null);
   const lastCandleRef = useRef<any>(null);
 
+  const [activeSymbol, setActiveSymbol] = useState("XAUUSD");
+  const [activeTf, setActiveTf] = useState("1H");
   const { ticks, isConnected } = useWebSocket();
 
+  // Load chart & candles
   useEffect(() => {
     if (!containerRef.current) return;
+
+    // Reset old chart if exists
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -65,8 +74,9 @@ export default function PriceChart() {
     candleSeriesRef.current = candleSeries;
     chartRef.current = chart;
 
-    // Load real candles from MetaTrader 5 via backend
-    api.trades.getCandles("XAUUSD")
+    // Load real/fallback candles from backend
+    api.trades
+      .getCandles(activeSymbol)
       .then((res) => {
         if (res && res.candles && res.candles.length > 0) {
           candleSeries.setData(res.candles);
@@ -77,8 +87,8 @@ export default function PriceChart() {
       .catch(() => null);
 
     const handleResize = () => {
-      if (containerRef.current) {
-        chart.applyOptions({
+      if (containerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({
           width: containerRef.current.clientWidth,
           height: containerRef.current.clientHeight,
         });
@@ -91,35 +101,55 @@ export default function PriceChart() {
     return () => {
       window.removeEventListener("resize", handleResize);
       chart.remove();
+      chartRef.current = null;
     };
-  }, []);
+  }, [activeSymbol]);
 
-  // Update candlestick when live tick arrives
+  // Update candlestick when live tick arrives with BAR ROLLOVER
   useEffect(() => {
-    const tick = ticks["XAUUSD"];
+    const tick = ticks[activeSymbol];
     if (!tick || !candleSeriesRef.current) return;
 
     const currentPrice = tick.bid;
+    const nowSec = Math.floor(Date.now() / 1000);
+    // 1H interval = 3600s
+    const barTime = nowSec - (nowSec % 3600);
+
     if (lastCandleRef.current) {
       const last = lastCandleRef.current;
-      const updated = {
-        ...last,
-        close: currentPrice,
-        high: Math.max(last.high, currentPrice),
-        low: Math.min(last.low, currentPrice),
-      };
-      lastCandleRef.current = updated;
-
-      try {
-        candleSeriesRef.current.update(updated);
-      } catch {
-        // Ignore transient errors
+      // If time moved to the next hour -> create new bar rollover!
+      if (barTime > last.time) {
+        const newBar = {
+          time: barTime as any,
+          open: currentPrice,
+          high: currentPrice,
+          low: currentPrice,
+          close: currentPrice,
+        };
+        lastCandleRef.current = newBar;
+        try {
+          candleSeriesRef.current.update(newBar);
+        } catch {
+          // Ignore
+        }
+      } else {
+        // Update current running bar
+        const updated = {
+          ...last,
+          close: currentPrice,
+          high: Math.max(last.high, currentPrice),
+          low: Math.min(last.low, currentPrice),
+        };
+        lastCandleRef.current = updated;
+        try {
+          candleSeriesRef.current.update(updated);
+        } catch {
+          // Ignore
+        }
       }
     } else {
-      const nowSec = Math.floor(Date.now() / 1000);
-      const hourSec = nowSec - (nowSec % 3600);
       const initial = {
-        time: hourSec as any,
+        time: barTime as any,
         open: currentPrice,
         high: Math.max(currentPrice, tick.ask),
         low: currentPrice,
@@ -132,15 +162,35 @@ export default function PriceChart() {
         // Ignore
       }
     }
-  }, [ticks]);
+  }, [ticks, activeSymbol]);
 
   return (
     <div className={`card ${styles.chartCard}`}>
-      <div className="card-header">
-        <div className={styles.chartHeader}>
-          <span className="card-title">XAUUSD • 1H</span>
+      <div className="card-header" style={{ flexWrap: "wrap", gap: "10px" }}>
+        <div className={styles.chartHeader} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Symbol Selector */}
+          <select
+            value={activeSymbol}
+            onChange={(e) => setActiveSymbol(e.target.value)}
+            style={{
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-primary)",
+              color: "var(--text-primary)",
+              fontWeight: 700,
+              fontSize: "var(--text-sm)",
+              borderRadius: "var(--radius-sm)",
+              padding: "4px 8px",
+              cursor: "pointer",
+            }}
+          >
+            <option value="XAUUSD">XAUUSD • Gold</option>
+            <option value="EURUSD">EURUSD</option>
+            <option value="GBPUSD">GBPUSD</option>
+            <option value="BTCUSD">BTCUSD</option>
+          </select>
+
           <div className={styles.chartBadges}>
-            <span className="badge badge-info">Live</span>
+            <span className="badge badge-info">Real-Time</span>
             <span
               className={`badge ${
                 isConnected ? "badge-success" : "badge-secondary"
@@ -152,15 +202,17 @@ export default function PriceChart() {
                 }`}
                 style={{ width: 6, height: 6 }}
               />
-              {isConnected ? "Streaming" : "Offline"}
+              {isConnected ? "Live Streaming" : "Waiting Feed"}
             </span>
           </div>
         </div>
+
         <div className={styles.timeframes}>
-          {["5m", "15m", "1H", "4H", "1D"].map((tf) => (
+          {["15m", "1H", "4H", "1D"].map((tf) => (
             <button
               key={tf}
-              className={`${styles.tfBtn} ${tf === "1H" ? styles.tfActive : ""}`}
+              onClick={() => setActiveTf(tf)}
+              className={`${styles.tfBtn} ${activeTf === tf ? styles.tfActive : ""}`}
             >
               {tf}
             </button>

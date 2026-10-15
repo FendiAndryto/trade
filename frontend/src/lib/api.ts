@@ -194,9 +194,46 @@ export const api = {
     },
     close: (tradeId: string): Promise<Trade> =>
       request<Trade>(`/trades/${tradeId}/close`, { method: "POST" }),
+    createManual: (data: {
+      symbol: string;
+      direction: string;
+      lot_size: number;
+      stop_loss?: number;
+      take_profit?: number;
+      comment?: string;
+    }): Promise<Trade> =>
+      request<Trade>("/trades/manual", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    modify: (
+      tradeId: string,
+      data: { stop_loss?: number; take_profit?: number }
+    ): Promise<Trade> =>
+      request<Trade>(`/trades/${tradeId}/modify`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
     getCandles: (symbol: string = "XAUUSD"): Promise<{ symbol: string; candles: any[] }> =>
       request<{ symbol: string; candles: any[] }>(`/trades/candles?symbol=${symbol}`),
   },
+
+  // MT5 Accounts endpoints (No-Code Pairing)
+  accounts: {
+    list: (): Promise<any[]> => request<any[]>("/accounts"),
+    create: (data: {
+      mt5_login: number;
+      server_name: string;
+      broker_name?: string;
+    }): Promise<any> =>
+      request<any>("/accounts", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string): Promise<void> =>
+      request<void>(`/accounts/${id}`, { method: "DELETE" }),
+  },
+
 
   // Strategy endpoints
   strategies: {

@@ -187,7 +187,11 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_token: str = Quer
 
     async with async_session_factory() as db:
         result = await db.execute(
-            select(MT5Account).where(MT5Account.agent_token_hash == token_hash)
+            select(MT5Account).where(
+                (MT5Account.agent_token_hash == token_hash)
+                | (MT5Account.pairing_code == agent_token)
+                | (MT5Account.pairing_code == agent_token.upper())
+            )
         )
         mt5_account = result.scalar_one_or_none()
 
@@ -304,14 +308,20 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_token: str = Quer
                     await ws_manager.send_to_user(user_id, "account_update", data)
 
                 elif event == "candles_update":
+                    from app.services.candle_service import set_candles
                     sym = str(data.get("symbol", "XAUUSD")).upper().rstrip("M")
                     candles = data.get("candles", [])
                     latest_candles[sym] = candles
+                    set_candles(sym, candles)
                     await ws_manager.send_to_user(user_id, "candles", {"symbol": sym, "candles": candles})
 
                 elif event == "tick":
+                    from app.services.candle_service import update_candle_with_tick
                     symbol = data.get("symbol", "")
                     await ws_manager.broadcast_tick(symbol, data)
+                    if data.get("bid"):
+                        update_candle_with_tick(symbol, float(data["bid"]), int(data.get("time")) if data.get("time") else None)
+
 
                 elif event == "execution_report":
                     trade_id_str = data.get("trade_id")

@@ -35,3 +35,18 @@ class TradeListResponse(BaseModel):
     total: int
     page: int
     per_page: int
+
+
+class ManualTradeCreate(BaseModel):
+    symbol: str = "XAUUSD"
+    direction: str = "buy"  # "buy" or "sell"
+    lot_size: float = 0.01
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    comment: str = "TradeGear Manual"
+
+
+class TradeModifyRequest(BaseModel):
+    stop_loss: float | None = None
+    take_profit: float | None = None
+
