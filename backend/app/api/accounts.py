@@ -121,8 +121,8 @@ async def pair_mt5_terminal(
     account = result.scalar_one_or_none()
 
     if not account:
-        # Fallback check for dev mode
-        if "dev" in code.lower():
+        # Fallback check for dev mode or default code
+        if "dev" in code.lower() or code in ("TG-000000", ""):
             dev_res = await db.execute(select(MT5Account).limit(1))
             account = dev_res.scalar_one_or_none()
 
