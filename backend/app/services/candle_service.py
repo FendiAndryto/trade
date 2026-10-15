@@ -23,15 +23,15 @@ def get_or_generate_candles(
         return _cached_candles[sym]
 
     base_prices = {
-        "XAUUSD": 2650.0,
+        "XAUUSD": 4154.0,
         "EURUSD": 1.0850,
         "GBPUSD": 1.2980,
         "BTCUSD": 67400.0,
     }
-    current_price = base_prices.get(sym, 2650.0)
+    current_price = base_prices.get(sym, 4154.0)
     digits = 2 if sym in ("XAUUSD", "BTCUSD") else 5
     volatility = (
-        4.5
+        6.5
         if sym == "XAUUSD"
         else 0.0015
         if "USD" in sym and sym != "BTCUSD"
@@ -48,7 +48,7 @@ def get_or_generate_candles(
     # Seed deterministic random walk based on current day and symbol
     rng = random.Random(hash(sym + str(now_sec // 86400)) & 0xFFFFFFFF)
 
-    price = current_price - (count * 0.08 * volatility)
+    price = current_price - (count * 0.05 * volatility)
     for i in range(count):
         bar_time = start_time + (i * timeframe_sec)
         open_p = round(price, digits)
@@ -81,9 +81,15 @@ def update_candle_with_tick(
     if not candles:
         return
 
+    # If cache was generated with old price reference (discrepancy > 15%), re-seed to avoid vertical spike
+    last_candle = candles[-1]
+    if abs(last_candle["close"] - price) > (price * 0.15):
+        _cached_candles.pop(sym, None)
+        candles = get_or_generate_candles(sym)
+        last_candle = candles[-1]
+
     now_sec = tick_time or int(time.time())
     bar_time = now_sec - (now_sec % timeframe_sec)
-    last_candle = candles[-1]
 
     if last_candle["time"] == bar_time:
         # Update current bar

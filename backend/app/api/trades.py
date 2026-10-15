@@ -329,19 +329,29 @@ async def ingest_agent_event(
         )
 
     elif event == "tick":
-        sym = str(data.get("symbol", "")).upper()
+        raw_sym = str(data.get("symbol", "")).upper()
+        clean_sym = raw_sym.rstrip("M")
         bid = float(data.get("bid", 0.0))
         ask = float(data.get("ask", 0.0))
         tick_time = data.get("time")
 
         tick_payload = {
-            "symbol": sym,
+            "symbol": clean_sym,
             "bid": bid,
             "ask": ask,
             "time": tick_time or now.isoformat(),
         }
-        await ws_manager.broadcast_tick(sym, tick_payload)
-        update_candle_with_tick(sym, bid, int(tick_time) if tick_time else None)
+        await ws_manager.broadcast_tick(clean_sym, tick_payload)
+        if raw_sym != clean_sym:
+            await ws_manager.broadcast_tick(raw_sym, {**tick_payload, "symbol": raw_sym})
+
+        t_epoch = None
+        if tick_time is not None:
+            try:
+                t_epoch = int(float(tick_time))
+            except (ValueError, TypeError):
+                pass
+        update_candle_with_tick(clean_sym, bid, t_epoch)
 
     elif event == "heartbeat":
         if "balance" in data:

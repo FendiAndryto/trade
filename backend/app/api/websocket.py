@@ -17,7 +17,7 @@ router = APIRouter(tags=["WebSocket"])
 latest_candles: dict[str, list[dict]] = {}
 _tick_task: asyncio.Task | None = None
 _prices = {
-    "XAUUSD": 2651.30,
+    "XAUUSD": 4154.60,
     "EURUSD": 1.08520,
     "GBPUSD": 1.29850,
     "BTCUSD": 67450.0,
@@ -39,11 +39,11 @@ async def _tick_simulation_loop():
                 subscribed = {"XAUUSD"}
 
             for symbol in subscribed:
-                curr = _prices.get(symbol, 2650.0)
+                curr = _prices.get(symbol, 4154.0)
                 if symbol == "XAUUSD":
                     delta = (random.random() - 0.49) * 0.45
                     curr = round(curr + delta, 2)
-                    spread = 0.30
+                    spread = 0.25
                 elif symbol == "EURUSD":
                     delta = (random.random() - 0.49) * 0.00015
                     curr = round(curr + delta, 5)
@@ -317,17 +317,30 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_token: str = Quer
 
                 elif event == "tick":
                     from app.services.candle_service import update_candle_with_tick
-                    symbol = data.get("symbol", "")
-                    await ws_manager.broadcast_tick(symbol, data)
-                    if data.get("bid"):
-                        t_val = data.get("time")
-                        t_epoch = None
-                        if t_val is not None:
-                            try:
-                                t_epoch = int(float(t_val))
-                            except (ValueError, TypeError):
-                                pass
-                        update_candle_with_tick(symbol, float(data["bid"]), t_epoch)
+                    raw_sym = str(data.get("symbol", "")).upper()
+                    clean_sym = raw_sym.rstrip("M")
+                    bid_val = float(data.get("bid", 0.0))
+                    ask_val = float(data.get("ask", 0.0))
+                    t_val = data.get("time")
+                    t_epoch = None
+                    if t_val is not None:
+                        try:
+                            t_epoch = int(float(t_val))
+                        except (ValueError, TypeError):
+                            pass
+
+                    tick_payload = {
+                        "symbol": clean_sym,
+                        "bid": bid_val,
+                        "ask": ask_val,
+                        "time": data.get("time") or datetime.now(timezone.utc).isoformat(),
+                    }
+                    _prices[clean_sym] = bid_val
+                    await ws_manager.broadcast_tick(clean_sym, tick_payload)
+                    if raw_sym != clean_sym:
+                        await ws_manager.broadcast_tick(raw_sym, {**tick_payload, "symbol": raw_sym})
+                    if bid_val:
+                        update_candle_with_tick(clean_sym, bid_val, t_epoch)
 
 
                 elif event == "execution_report":
