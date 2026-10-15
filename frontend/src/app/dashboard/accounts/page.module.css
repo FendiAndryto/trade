@@ -1,0 +1,56 @@
+.pageHeader {
+  margin-bottom: var(--space-6);
+}
+
+.pageHeader h1 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.pageHeader p {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.accountsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .accountsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.accountDetails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.detailRow {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-primary);
+  font-size: var(--text-sm);
+}
+
+.codeBlock {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #38bdf8;
+  overflow-x: auto;
+  white-space: pre;
+  margin-top: var(--space-3);
+}

@@ -1,0 +1,76 @@
+.pageHeader {
+  margin-bottom: var(--space-6);
+}
+
+.pageHeader h1 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.pageHeader p {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.riskGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 900px) {
+  .riskGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 600px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.formGroup label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.helperText {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.emergencyCard {
+  border: 1px solid var(--color-danger-border) !important;
+  background: rgba(239, 68, 68, 0.04) !important;
+}
+
+.emergencyRow {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.emergencyRow:last-child {
+  border-bottom: none;
+}

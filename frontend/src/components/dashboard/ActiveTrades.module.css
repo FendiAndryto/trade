@@ -1,0 +1,69 @@
+.tradesList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tradeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  transition: all var(--transition-fast);
+}
+
+.tradeRow:hover {
+  border-color: var(--border-secondary);
+  background: var(--bg-tertiary);
+}
+
+.tradeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tradeSymbol {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.symbol {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tradePrices {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.tradeRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tradePnl {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  min-width: 80px;
+  text-align: right;
+}
+
+.tradeActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.emptyState {
+  padding: var(--space-8);
+  text-align: center;
+}

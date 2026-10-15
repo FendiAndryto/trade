@@ -1,0 +1,69 @@
+//@version=5
+// ==============================================================================
+// TradeGear 🚀 — Official PineScript v5 Webhook Connector & Alert Template
+// ==============================================================================
+// Gunakan script ini di Pine Editor TradingView.
+// Script ini otomatis menyusun payload JSON yang valid untuk dieksekusi oleh TradeGear Risk Engine.
+// ==============================================================================
+
+indicator("TradeGear Webhook Alert Generator (v5)", overlay = true)
+
+// --- INPUT PENGATURAN STRATEGI ---
+fastLen   = input.int(9, title="Fast EMA Length", minval=1)
+slowLen   = input.int(21, title="Slow EMA Length", minval=1)
+atrLen    = input.int(14, title="ATR Length (For Dynamic SL/TP)", minval=1)
+slMult    = input.float(1.5, title="Stop Loss ATR Multiplier", minval=0.5, step=0.1)
+tpMult    = input.float(3.0, title="Take Profit ATR Multiplier", minval=1.0, step=0.1)
+
+// --- KALKULASI INDIKATOR ---
+fastEma = ta.ema(close, fastLen)
+slowEma = ta.ema(close, slowLen)
+atrVal  = ta.atr(atrLen)
+
+plot(fastEma, title="Fast EMA", color=color.aqua, linewidth=2)
+plot(slowEma, title="Slow EMA", color=color.orange, linewidth=2)
+
+// --- KONDISI SINYAL ---
+bullishSignal = ta.crossover(fastEma, slowEma)
+bearishSignal = ta.crossunder(fastEma, slowEma)
+
+// --- KALKULASI SL & TP DINAMIS ---
+var float buySL  = na
+var float buyTP  = na
+var float sellSL = na
+var float sellTP = na
+
+if bullishSignal
+    buySL := math.round_to_mintick(close - (atrVal * slMult))
+    buyTP := math.round_to_mintick(close + (atrVal * tpMult))
+
+if bearishSignal
+    sellSL := math.round_to_mintick(close + (atrVal * slMult))
+    sellTP := math.round_to_mintick(close - (atrVal * tpMult))
+
+plotshape(bullishSignal, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small, text="BUY")
+plotshape(bearishSignal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small, text="SELL")
+
+// --- PEMBUATAN PAYLOAD JSON RESMI TRADEGEAR ---
+// 1. Alert BUY
+if bullishSignal
+    alertMsgBuy = '{"action":"buy","symbol":"' + syminfo.ticker + '","price":' + str.tostring(close, "#.##") + ',"sl":' + str.tostring(buySL, "#.##") + ',"tp":' + str.tostring(buyTP, "#.##") + ',"comment":"TV: EMA Cross Buy"}'
+    alert(alertMsgBuy, alert.freq_once_per_bar_close)
+
+// 2. Alert SELL
+if bearishSignal
+    alertMsgSell = '{"action":"sell","symbol":"' + syminfo.ticker + '","price":' + str.tostring(close, "#.##") + ',"sl":' + str.tostring(sellSL, "#.##") + ',"tp":' + str.tostring(sellTP, "#.##") + ',"comment":"TV: EMA Cross Sell"}'
+    alert(alertMsgSell, alert.freq_once_per_bar_close)
+
+// ==============================================================================
+// 📋 PANDUAN CARA PASANG DI TRADINGVIEW:
+// ==============================================================================
+// 1. Copy seluruh isi script ini ke Pine Editor di TradingView, lalu klik "Add to chart".
+// 2. Klik tombol "Alert" (ikon jam weker) di TradingView.
+// 3. Pada kolom "Condition", pilih "TradeGear Webhook Alert Generator (v5)".
+// 4. Pilih "Any alert() function call".
+// 5. Centang "Webhook URL", dan masukkan URL Webhook strategi Anda:
+//    Contoh: http://IP-SERVER-ANDA:8001/api/v1/webhook/6465a5ac-feb3-4247-9ee5-706a1f63daa4
+// 6. Pada tab "Notifications", pastikan Webhook URL aktif.
+// 7. Simpan Alert. Setiap sinyal muncul, TradingView akan otomatis menembak order ke TradeGear!
+// ==============================================================================
