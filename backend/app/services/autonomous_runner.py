@@ -17,7 +17,7 @@ from app.models.strategy import Strategy
 from app.models.trade import Trade, TradeDirection, TradeStatus
 from app.services.candle_service import get_or_generate_candles
 from app.services.exit_manager import evaluate_auto_bep, evaluate_trailing_stop
-from app.services.news_filter import is_news_blackout
+from app.services.news_filter import is_high_impact_news_window
 from app.services.strategy_engine import evaluate_built_in_strategy
 from app.ws.manager import ws_manager
 
@@ -50,7 +50,8 @@ async def run_autonomous_strategy_engine():
                     strat_type = "ema_cross"
 
                     # Check news filter
-                    if is_news_blackout(symbol):
+                    is_blackout, _ = is_high_impact_news_window()
+                    if is_blackout:
                         continue
 
                     # Fetch candles
