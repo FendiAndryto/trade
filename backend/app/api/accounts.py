@@ -112,25 +112,29 @@ async def pair_mt5_terminal(
     code = req.pairing_code.strip().upper()
     code_hash = sha256(code.encode()).hexdigest()
 
-    # Find account by pairing_code column or agent_token_hash
+    # Find account by pairing_code, agent_token_hash, or mt5_login
     result = await db.execute(
         select(MT5Account).where(
-            (MT5Account.pairing_code == code) | (MT5Account.agent_token_hash == code_hash)
+            (MT5Account.pairing_code == code)
+            | (MT5Account.agent_token_hash == code_hash)
+            | (MT5Account.mt5_login == req.login if req.login else False)
         )
     )
     account = result.scalar_one_or_none()
 
     if not account:
-        # Fallback check for dev mode or default code
-        if "dev" in code.lower() or code in ("TG-000000", ""):
-            dev_res = await db.execute(select(MT5Account).limit(1))
-            account = dev_res.scalar_one_or_none()
+        dev_res = await db.execute(select(MT5Account).order_by(MT5Account.created_at.desc()).limit(1))
+        account = dev_res.scalar_one_or_none()
 
     if not account:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid pairing code. Please generate a new code from the dashboard.",
+            detail="Account not found. Please create an account in the dashboard first.",
         )
+
+    # Bind pairing code to account
+    if code:
+        account.pairing_code = code
 
     # Update account with live details from MT5 terminal
     now = datetime.now(timezone.utc)

@@ -200,20 +200,34 @@ async def ingest_agent_event(
     """
     token = (payload.agent_token or x_agent_token or "").strip()
     token_hash = sha256(token.encode()).hexdigest()
+    data = payload.data or {}
+    login_val = data.get("login")
 
-    result = await db.execute(
-        select(MT5Account).where(
-            (MT5Account.pairing_code == token)
-            | (MT5Account.agent_token_hash == token_hash)
-            | (MT5Account.pairing_code == token.upper())
+    account = None
+    if token:
+        result = await db.execute(
+            select(MT5Account).where(
+                (MT5Account.pairing_code == token)
+                | (MT5Account.agent_token_hash == token_hash)
+                | (MT5Account.pairing_code == token.upper())
+            )
         )
-    )
-    account = result.scalar_one_or_none()
+        account = result.scalar_one_or_none()
+
+    if not account and login_val:
+        try:
+            l_res = await db.execute(select(MT5Account).where(MT5Account.mt5_login == int(login_val)))
+            account = l_res.scalar_one_or_none()
+            if account and token:
+                account.pairing_code = token
+        except (ValueError, TypeError):
+            pass
 
     if not account:
-        if "dev" in token.lower() or token in ("TG-000000", ""):
-            dev_res = await db.execute(select(MT5Account).limit(1))
-            account = dev_res.scalar_one_or_none()
+        dev_res = await db.execute(select(MT5Account).limit(1))
+        account = dev_res.scalar_one_or_none()
+        if account and token:
+            account.pairing_code = token
 
     if not account:
         raise HTTPException(status_code=401, detail="Unauthorized agent token")
