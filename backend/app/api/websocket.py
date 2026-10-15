@@ -320,7 +320,14 @@ async def agent_websocket_endpoint(websocket: WebSocket, agent_token: str = Quer
                     symbol = data.get("symbol", "")
                     await ws_manager.broadcast_tick(symbol, data)
                     if data.get("bid"):
-                        update_candle_with_tick(symbol, float(data["bid"]), int(data.get("time")) if data.get("time") else None)
+                        t_val = data.get("time")
+                        t_epoch = None
+                        if t_val is not None:
+                            try:
+                                t_epoch = int(float(t_val))
+                            except (ValueError, TypeError):
+                                pass
+                        update_candle_with_tick(symbol, float(data["bid"]), t_epoch)
 
 
                 elif event == "execution_report":
