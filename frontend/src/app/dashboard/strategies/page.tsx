@@ -221,6 +221,104 @@ export default function StrategiesPage() {
         </div>
       </div>
 
+      {/* Autopilot Robot Master Controller */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%)",
+          border: "1px solid rgba(16, 185, 129, 0.35)",
+          borderRadius: "16px",
+          padding: "24px",
+          marginBottom: "28px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+              <span style={{ fontSize: "20px" }}>🤖</span>
+              <h2 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+                Robot Autopilot (Hands-Free Auto-Trading)
+              </h2>
+              <span
+                style={{
+                  background: "rgba(16, 185, 129, 0.2)",
+                  color: "#10b981",
+                  border: "1px solid rgba(16, 185, 129, 0.4)",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  padding: "2px 10px",
+                  borderRadius: "20px",
+                }}
+              >
+                ● 24/7 ONLINE & SCANNING
+              </span>
+            </div>
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px", margin: 0, maxWidth: "680px", lineHeight: "1.5" }}>
+              Robot menganalisis pergerakan market dan <strong>mengeksekusi order BUY/SELL secara otomatis</strong> langsung ke akun MT5 Anda. Tidak perlu membuka chart, tidak perlu berlangganan TradingView, dan tidak perlu manual entry!
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <a
+              href={`${apiHost}/accounts/download-ea`}
+              download
+              className={styles.actionBtn}
+              style={{
+                background: "rgba(16, 185, 129, 0.15)",
+                borderColor: "rgba(16, 185, 129, 0.4)",
+                color: "#10b981",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              📥 Download Robot EA (.mq5)
+            </a>
+            {strategies.length > 0 && (
+              <button
+                onClick={() => handleTestTrigger(strategies[0])}
+                className={styles.actionBtn}
+                style={{
+                  background: "rgba(59, 130, 246, 0.15)",
+                  borderColor: "rgba(59, 130, 246, 0.4)",
+                  color: "var(--accent-blue)",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                ⚡ Trigger Test Entry Sekarang
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Feature Pills */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px", marginTop: "4px" }}>
+          <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.06)" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>📈 Algoritma Bawaan</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>EMA 9/21 Golden Cross & RSI 14 Mean Reversion</div>
+          </div>
+          <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.06)" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>🛡️ Risk & Exit Guard</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>Auto BEP (Risk-Free) & Dynamic Trailing Stop</div>
+          </div>
+          <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255, 255, 255, 0.06)" }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>🎯 Target Cuan Harian</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>Auto-Lock Profit + Tombol Bumper "+3% Lanjut Trading"</div>
+          </div>
+        </div>
+      </div>
+
       {/* Strategies Grid */}
       {isLoading ? (
         <div

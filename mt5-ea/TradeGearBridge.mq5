@@ -5,9 +5,11 @@
 //+------------------------------------------------------------------+
 #property copyright   "TradeGear Platform"
 #property link        "https://tradegear.platform"
-#property version     "2.00"
-#property description "TradeGear No-Code MT5 Bridge & Real-Time Synchronizer"
+#property version     "2.10"
+#property description "TradeGear Autonomous MT5 Robot & Real-Time Synchronizer"
 #property strict
+
+#include <Trade\Trade.mqh>
 
 //--- Input Parameters
 input group "=== TradeGear Connection Settings ==="
@@ -16,10 +18,23 @@ input string   InpPairingCode   = "TG-000000";                 // 6-Digit Pairin
 input int      InpHeartbeatSec  = 3;                            // Sync Interval (Seconds)
 input bool     InpStreamTicks   = true;                         // Stream Real-Time Prices (Ticks)
 
+input group "=== Autonomous Auto-Trading (Robot Autopilot) ==="
+input bool     InpAutoTrade      = true;                         // 🤖 Aktifkan Robot Autopilot (Beli/Jual Otomatis)
+input double   InpLotSize        = 0.01;                         // Lot Size untuk Setiap Posisi
+input int      InpFastEma        = 9;                            // Fast EMA Period
+input int      InpSlowEma        = 21;                           // Slow EMA Period
+input int      InpStopLossPips   = 40;                           // Stop Loss (Pips, 0 = Nonaktif)
+input int      InpTakeProfitPips = 80;                           // Take Profit (Pips, 0 = Nonaktif)
+input ulong    InpMagicNumber    = 884920;                       // Magic Number Robot
+
 //--- Global Variables
-string g_Token = "";
+CTrade   g_Trade;
+string   g_Token = "";
 datetime g_LastTickTime = 0;
-bool g_IsPaired = false;
+datetime g_LastBarTime = 0;
+bool     g_IsPaired = false;
+int      g_FastEmaHandle = INVALID_HANDLE;
+int      g_SlowEmaHandle = INVALID_HANDLE;
 
 //+------------------------------------------------------------------+
 //| Helper: Send HTTP POST Request via WebRequest                    |
@@ -50,7 +65,7 @@ int HttpPost(string endpoint, string jsonPayload, string &responseOut)
       int err = GetLastError();
       if(err == 4014)
       {
-         Print("❌ Error 4014: Please allow WebRequest for URL '", InpServerUrl, "' in Tools -> Options -> Expert Advisors");
+         Print("⚠️ Error 4014: Please allow WebRequest for URL '", InpServerUrl, "' in Tools -> Options -> Expert Advisors");
       }
       else
       {
@@ -100,14 +115,96 @@ string GetOpenPositionsJson()
 }
 
 //+------------------------------------------------------------------+
+//| Autonomous Trading Evaluation (Autopilot Entry Engine)           |
+//+------------------------------------------------------------------+
+void CheckAutonomousEntry()
+{
+   if(!InpAutoTrade || g_FastEmaHandle == INVALID_HANDLE || g_SlowEmaHandle == INVALID_HANDLE) return;
+
+   datetime currentBarTime = iTime(_Symbol, _Period, 0);
+   if(currentBarTime == g_LastBarTime) return;
+
+   // Check if a position is already open for this robot on this symbol
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket = PositionGetTicket(i);
+      if(ticket > 0 && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber && PositionGetString(POSITION_SYMBOL) == _Symbol)
+      {
+         return; // Position already open
+      }
+   }
+
+   double fastEma[];
+   double slowEma[];
+   ArraySetAsSeries(fastEma, true);
+   ArraySetAsSeries(slowEma, true);
+
+   if(CopyBuffer(g_FastEmaHandle, 0, 1, 2, fastEma) < 2) return;
+   if(CopyBuffer(g_SlowEmaHandle, 0, 1, 2, slowEma) < 2) return;
+
+   // fastEma[0] is Bar 1 (just closed), fastEma[1] is Bar 2 (previous closed bar)
+   bool bullishCross = (fastEma[1] <= slowEma[1] && fastEma[0] > slowEma[0]);
+   bool bearishCross = (fastEma[1] >= slowEma[1] && fastEma[0] < slowEma[0]);
+
+   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+   int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+   double pipMultiplier = (digits == 3 || digits == 5) ? 10 * point : point;
+
+   if(bullishCross)
+   {
+      double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+      double sl = (InpStopLossPips > 0) ? NormalizeDouble(ask - (InpStopLossPips * pipMultiplier), digits) : 0;
+      double tp = (InpTakeProfitPips > 0) ? NormalizeDouble(ask + (InpTakeProfitPips * pipMultiplier), digits) : 0;
+
+      if(g_Trade.Buy(InpLotSize, _Symbol, ask, sl, tp, "TradeGear AutoBot EMA"))
+      {
+         Print("🚀 [TradeGear AutoBot] Golden Cross detected! Auto BUY executed on ", _Symbol, " Lot: ", InpLotSize);
+         g_LastBarTime = currentBarTime;
+      }
+      else
+      {
+         Print("❌ [TradeGear AutoBot] Buy order failed: ", g_Trade.ResultRetcodeDescription());
+      }
+   }
+   else if(bearishCross)
+   {
+      double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+      double sl = (InpStopLossPips > 0) ? NormalizeDouble(bid + (InpStopLossPips * pipMultiplier), digits) : 0;
+      double tp = (InpTakeProfitPips > 0) ? NormalizeDouble(bid - (InpTakeProfitPips * pipMultiplier), digits) : 0;
+
+      if(g_Trade.Sell(InpLotSize, _Symbol, bid, sl, tp, "TradeGear AutoBot EMA"))
+      {
+         Print("🚀 [TradeGear AutoBot] Death Cross detected! Auto SELL executed on ", _Symbol, " Lot: ", InpLotSize);
+         g_LastBarTime = currentBarTime;
+      }
+      else
+      {
+         Print("❌ [TradeGear AutoBot] Sell order failed: ", g_Trade.ResultRetcodeDescription());
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   Print("🚀 TradeGear Bridge initializing...");
+   Print("🚀 TradeGear Bridge & Auto-Trading Robot initializing...");
    Print("   Server URL: ", InpServerUrl);
    Print("   Pairing Code: ", InpPairingCode);
-   
+   Print("   Autopilot Mode: ", InpAutoTrade ? "ENABLED (Automatic Trading)" : "DISABLED (Sync Only)");
+
+   g_Trade.SetExpertMagicNumber(InpMagicNumber);
+   g_Trade.SetDeviationInPoints(20);
+   g_Trade.SetTypeFillingBySymbol(_Symbol);
+
+   if(InpAutoTrade)
+   {
+      g_FastEmaHandle = iMA(_Symbol, _Period, InpFastEma, 0, MODE_EMA, PRICE_CLOSE);
+      g_SlowEmaHandle = iMA(_Symbol, _Period, InpSlowEma, 0, MODE_EMA, PRICE_CLOSE);
+      Print("🤖 [TradeGear AutoBot] Strategy initialized: EMA ", InpFastEma, "/", InpSlowEma, " on ", _Symbol);
+   }
+
    // 1. Send Handshake Pairing to TradeGear Server
    string pairPayload = StringFormat(
       "{\"pairing_code\":\"%s\",\"login\":%I64d,\"server\":\"%s\",\"broker\":\"%s\",\"balance\":%.2f,\"equity\":%.2f}",
@@ -144,7 +241,9 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    EventKillTimer();
-   Print("👋 TradeGear Bridge stopped.");
+   if(g_FastEmaHandle != INVALID_HANDLE) IndicatorRelease(g_FastEmaHandle);
+   if(g_SlowEmaHandle != INVALID_HANDLE) IndicatorRelease(g_SlowEmaHandle);
+   Print("👋 TradeGear Bridge & Auto-Trading Robot stopped.");
 }
 
 //+------------------------------------------------------------------+
@@ -199,6 +298,10 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   // 1. Run autonomous trading analysis on every tick/bar
+   CheckAutonomousEntry();
+
+   // 2. Stream tick data to web dashboard
    if(!InpStreamTicks || !g_IsPaired) return;
    
    datetime now = TimeCurrent();
@@ -218,7 +321,7 @@ void OnTick()
 }
 
 //+------------------------------------------------------------------+
-//| Timer function: Heartbeat & Command Processing                   |
+//| Timer function: Heartbeat & State Synchronization                |
 //+------------------------------------------------------------------+
 void OnTimer()
 {

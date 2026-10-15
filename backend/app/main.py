@@ -17,12 +17,17 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
+    import asyncio
+    from app.services.autonomous_runner import run_autonomous_strategy_engine
+
     # --- Startup ---
     print(f"[*] {settings.APP_NAME} v{settings.APP_VERSION} starting...")
     print(f"[*] Debug mode: {settings.DEBUG}")
+    auto_task = asyncio.create_task(run_autonomous_strategy_engine())
     yield
     # --- Shutdown ---
     print(f"[*] {settings.APP_NAME} shutting down...")
+    auto_task.cancel()
 
 
 app = FastAPI(
