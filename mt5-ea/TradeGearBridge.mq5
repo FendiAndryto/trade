@@ -231,7 +231,8 @@ int OnInit()
       g_Token = InpPairingCode;
    }
    
-   EventSetTimer(InpHeartbeatSec);
+   int timerInterval = (InpHeartbeatSec < 1) ? 1 : InpHeartbeatSec;
+   EventSetTimer(timerInterval);
    return(INIT_SUCCEEDED);
 }
 
